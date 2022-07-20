@@ -5,7 +5,7 @@
 #define LEFT_SENSOR_IN 2
 #define RIGHT_SENSOR_IN 4
 #define LED_PIN 13
-#define MAX_SPEED 175 //255 is max
+#define MAX_SPEED 210 //255 is max
 
 void setup() {
     pinMode(LEFT_MOTOR_OUT, OUTPUT);
