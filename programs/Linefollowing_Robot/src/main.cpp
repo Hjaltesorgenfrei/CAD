@@ -5,7 +5,8 @@
 #define LEFT_SENSOR_IN 2
 #define RIGHT_SENSOR_IN 4
 #define LED_PIN 13
-#define MAX_SPEED 220 // 255 is max
+#define RIGHT_SPEED 230 // 255 is max
+#define LEFT_SPEED 220
 
 #define RIGHT true;
 #define LEFT false;
@@ -31,7 +32,7 @@ void loop()
   {
     if (leftNotOver)
     {
-      analogWrite(LEFT_MOTOR_OUT, MAX_SPEED);
+      analogWrite(LEFT_MOTOR_OUT, LEFT_SPEED);
     }
     else
     {
@@ -43,7 +44,7 @@ void loop()
   {
     if (rightNotOver)
     {
-      analogWrite(RIGHT_MOTOR_OUT, MAX_SPEED);
+      analogWrite(RIGHT_MOTOR_OUT, RIGHT_SPEED);
     }
     else
     {
