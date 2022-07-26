@@ -31,11 +31,12 @@ TIME 100 SLIDE 10 INTERPOLATION 2
 ### Pan Angle
 
 - Key: PAN
-- Value: 
+- Value: 0 - 180
 
 ### Tilt Angle
 
 - Key: TILT
+- Value 0 - 180
 
 ### Interpolation Method
 
