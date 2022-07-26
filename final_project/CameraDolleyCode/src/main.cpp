@@ -4,27 +4,17 @@
  * then off for one second, repeatedly.
  */
 
-#define HW_TIMER_INTERVAL_US      20L
-#define USING_PWM_FREQUENCY     true
-#define USING_TIM_DIV1 true              // for shortest and most accurate timer
+#define HW_TIMER_INTERVAL_US 20L
+#define USING_PWM_FREQUENCY true
+#define USING_TIM_DIV1 true  // for shortest and most accurate timer
 
 #include <ESP8266WebServer.h>
 #include <ESP8266WiFi.h>
-#include <Servo.h>
-#include <ESP8266_PWM.h>
 
 #include <ArduinoJson.hpp>
 
-
-
 const char* ssid = "ESP8266-Access-Point";
 const char* password = "123456789";
-
-// Init ESP8266Timer
-ESP8266Timer ITimer;
-
-// Init ESP8266_ISR_PWM
-ESP8266_PWM ISR_PWM;
 
 // IPAddress local_ip(192, 168, 4, 1);
 // IPAddress gateway(192, 168, 4, 1);
@@ -68,28 +58,40 @@ void handle_Move() {
 }
 
 float calculateDutyCycle(int angle) {
-  return 5.0 + ((angle / 180.0) * 5.0);
+    return 5.0 + ((angle / 180.0) * 5.0);
 }
+
+#define SERVO_PIN D4
+
+#define TIMER_INTERRUPT_DEBUG 1
+#define ISR_SERVO_DEBUG 0
+
+#include "ESP8266_ISR_Servo.h"
+
+#define MIN_MICROS 500  // 544
+#define MAX_MICROS 2500
+
+uint64_t duty_micros = 1500;
+int position = 0;
+uint8_t servo_index = 0;
 
 void handle_Servo() {
     auto angle = server.arg("angle");
     String message = "Angle set: ";
-    if (angle != "") {  
-        ISR_PWM.setPWM(PWM_Pin, 20, calculateDutyCycle(angle.toInt()));
+    if (angle != "") {
+        duty_micros = map(angle.toInt(), 0, 180, 1000, 2000);
+        ISR_Servo.setPosition(servo_index, position);
         message += angle.toInt();
+        position = angle.toInt();
     }
     message += "\n";
     server.send(200, "text/plain", message);
 }
 
-void IRAM_ATTR TimerHandler()
-{
-  ISR_PWM.run();
-}
-
 void setup() {
     // initialize LED digital pin as an output.
     pinMode(LED_BUILTIN, OUTPUT);
+    pinMode(SERVO_PIN, OUTPUT);
     Serial.begin(9600);
 
     boolean result = WiFi.softAP(ssid, password, 13);
@@ -112,18 +114,14 @@ void setup() {
     server.onNotFound(handle_NotFound);
     server.begin();
 
-    if (ITimer.attachInterruptInterval(HW_TIMER_INTERVAL_US, TimerHandler))
-    {
-      startMicros = micros();
-      Serial.print(F("Starting ITimer OK, micros() = ")); 
-      Serial.println(startMicros);
-    }
-  
-    auto channel = ISR_PWM.setPWM(PWM_Pin, 20.0, 50.0);
-    ISR_PWM.enable(channel);
-    Serial.print("Pwm: "); Serial.println(channel);
+    servo_index = ISR_Servo.setupServo(D2, MIN_MICROS, MAX_MICROS);
+    ISR_Servo.setPosition(servo_index, position);
+
     Serial.println("Setup done");
 }
+
+uint64_t period = 0;
+boolean servo_on = false;
 
 void loop() {
     server.handleClient();
