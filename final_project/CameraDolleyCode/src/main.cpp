@@ -61,8 +61,6 @@ float calculateDutyCycle(int angle) {
     return 5.0 + ((angle / 180.0) * 5.0);
 }
 
-#define SERVO_PIN D4
-
 #define TIMER_INTERRUPT_DEBUG 1
 #define ISR_SERVO_DEBUG 0
 
@@ -88,10 +86,14 @@ void handle_Servo() {
     server.send(200, "text/plain", message);
 }
 
+#define STEP_PIN D1
+#define DIR_PIN D2
+
 void setup() {
     // initialize LED digital pin as an output.
     pinMode(LED_BUILTIN, OUTPUT);
-    pinMode(SERVO_PIN, OUTPUT);
+    pinMode(STEP_PIN, OUTPUT);
+    pinMode(DIR_PIN, OUTPUT);
     Serial.begin(9600);
 
     boolean result = WiFi.softAP(ssid, password, 13);
@@ -126,4 +128,8 @@ boolean servo_on = false;
 void loop() {
     server.handleClient();
     digitalWrite(LED_BUILTIN, LED1status);
+    digitalWrite(DIR_PIN, HIGH);
+    digitalWrite(STEP_PIN, HIGH);
+    delayMicroseconds(1000);
+    digitalWrite(STEP_PIN, LOW);  
 }
