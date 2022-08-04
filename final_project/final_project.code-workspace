@@ -9,7 +9,33 @@
 		},
 		{
 			"path": "Protocol"
+		},
+		{
+			"name": "EspCamServoAndStepperTest",
+			"path": "EspCamServoAndStepperTest"
 		}
 	],
-	"settings": {}
+	"settings": {
+		"workbench.colorCustomizations": {
+			"activityBar.activeBackground": "#31fc7d",
+			"activityBar.activeBorder": "#b081fd",
+			"activityBar.background": "#31fc7d",
+			"activityBar.foreground": "#15202b",
+			"activityBar.inactiveForeground": "#15202b99",
+			"activityBarBadge.background": "#b081fd",
+			"activityBarBadge.foreground": "#15202b",
+			"sash.hoverBorder": "#31fc7d",
+			"statusBar.background": "#04f65e",
+			"statusBar.foreground": "#15202b",
+			"statusBarItem.hoverBackground": "#03c44b",
+			"statusBarItem.remoteBackground": "#04f65e",
+			"statusBarItem.remoteForeground": "#15202b",
+			"tab.activeBorder": "#31fc7d",
+			"titleBar.activeBackground": "#04f65e",
+			"titleBar.activeForeground": "#15202b",
+			"titleBar.inactiveBackground": "#04f65e99",
+			"titleBar.inactiveForeground": "#15202b99"
+		},
+		"peacock.color": "#04f65e"
+	}
 }

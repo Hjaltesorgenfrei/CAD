@@ -1,20 +1,35 @@
 #include <Arduino.h>
 #include <ESP32Servo.h>
 
-// create four servo objects 
-Servo servo1;
+// create a servo object
+Servo servoTilt;
+Servo servoPan;
 
-#define servo1Pin 10
+#define servoTiltPin 15
+#define servoPanPin 16
 
 #define minUs 550
 #define maxUs 2000
 
 // Motor steps per revolution. Most steppers are 200 steps or 1.8 degrees/step
 #define MOTOR_STEPS 200
+#define MICROSTEPS 16
 #define RPM 150
+// #define RPM 75
 
 #define DIR 13
 #define STEP 12
+
+#define LEFT_STOP 2
+#define RIGHT_STOP 14
+
+#define BUILTIN_FLASH 4
+
+#define TILT_LIMIT 140
+#define TILT_90_DEG 62
+// These two values refer to camera tilt relative to flat plane
+#define TILT_MIN 28
+#define TILT_MAX TILT_MIN + TILT_LIMIT
 
 /*
  * Choose one of the sections below that match your board
@@ -23,37 +38,90 @@ Servo servo1;
 #include "A4988.h"
 A4988 stepper(MOTOR_STEPS, DIR, STEP);
 
-void setup() {
-    /*
-     * Set target motor RPM.
-     */
-    Serial.begin(9600);
-    stepper.begin(RPM);
-    // if using enable/disable on ENABLE pin (active LOW) instead of SLEEP uncomment next line
-    // stepper.setEnableActiveState(LOW);
-    stepper.setSpeedProfile(stepper.LINEAR_SPEED, 6000, 6000);
-    stepper.enable();
-    servo1.setPeriodHertz(50); 
+int count = 100 * MICROSTEPS; // Initialize to the movement we do back from the wall
+
+void setup()
+{
+  /*
+   * Set target motor RPM.
+   */
+  Serial.begin(9600);
+  stepper.begin(RPM, MICROSTEPS);
+  // if using enable/disable on ENABLE pin (active LOW) instead of SLEEP uncomment next line
+  // stepper.setEnableActiveState(LOW);
+  stepper.setSpeedProfile(stepper.LINEAR_SPEED, 6000, 6000);
+  stepper.enable();
+  servoTilt.setPeriodHertz(50);
+  servoPan.setPeriodHertz(50);
+  pinMode(LEFT_STOP, INPUT_PULLDOWN);
+  pinMode(RIGHT_STOP, INPUT_PULLDOWN);
+  pinMode(BUILTIN_FLASH, OUTPUT);
+  servoTilt.attach(servoTiltPin, minUs, maxUs);
+
+  // bool runLeft = true;
+  // while (runLeft)
+  // {
+  //   stepper.move(4 * MICROSTEPS);
+  //   runLeft = !digitalRead(LEFT_STOP);
+  // }
+
+  // stepper.move(-100 * MICROSTEPS);
+
+  // bool runRight = true;
+  // while (runRight)
+  // {
+  //   stepper.move(-4 * MICROSTEPS);
+  //   count += 4 * MICROSTEPS;
+  //   runRight = !digitalRead(RIGHT_STOP);
+  // }
+
+  // Serial.printf("I can count to %d!", count);
+  // stepper.move(count / 2);
 }
 
-void loop() {
-    delay(1000);
+void writeTilt(int deg)
+{
+  servoTilt.write(constrain(deg - TILT_MIN, 0, TILT_LIMIT));
+}
 
-    /*
-     * Moving motor in full step mode is simple:
-     */
-    stepper.setMicrostep(16);  // Set microstep mode to 1:1
-    stepper.rotate(360 * 2);   // forward revolution
-    stepper.rotate(-360 * 2);  // reverse revolution
-    int pos = 0;      // position in degrees
-  servo1.attach(servo1Pin);
-  for (pos = minUs; pos <= maxUs; pos += 1) { // sweep from 0 degrees to 180 degrees
-    servo1.writeMicroseconds(pos);
-		delay(5);
-	}
-	for (pos = maxUs; pos >= minUs; pos -= 1) { // sweep from 180 degrees to 0 degrees
-		servo1.write(pos);
-    servo1.writeMicroseconds(pos);
-		delay(5);   
-	}
+void loop()
+{
+
+  // digitalWrite(4, digitalRead(2));
+  // delay(1000);
+  // if (digitalRead(2))
+  // {
+  //   stepper.stop();
+  //   digitalWrite(4, HIGH);
+  //   delay(500);
+  //   digitalWrite(4, LOW);
+  //   stepper.setMicrostep(16); // Set microstep mode to 1:1
+  //   stepper.startRotate(360);
+  // }
+
+  /*
+   * We do a little jig both ways from the middle, resetting on the same place
+   */
+  // delay(500);
+  // stepper.rotate(360);
+  // stepper.rotate(-2 * 360);
+  // stepper.rotate(360);
+  int pos = 0;
+  // servoTilt.writeMicroseconds(minUs);
+  // servoTilt.write(90);
+  // delay(5);
+  // for (pos = TILT_MIN; pos <= TILT_MAX; pos += 1)
+  for (pos = 0; pos <= 180; pos += 1)
+  { // sweep from 0 degrees to 180 degrees
+    writeTilt(pos);
+    // Serial.println(pos);
+    delay(20);
+  }
+  // for (pos = TILT_MAX; pos >= TILT_MIN; pos -= 1)
+  for (pos = 180; pos >= 0; pos -= 1)
+  { // sweep from 180 degrees to 0 degrees
+    writeTilt(pos);
+    // Serial.println(pos);
+    delay(20);
+  }
 }
