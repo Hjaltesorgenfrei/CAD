@@ -1,0 +1,3 @@
+(sym_lib_table
+  (lib (name "ESP32-CAM")(type "Legacy")(uri "${KIPRJMOD}/ESP32-CAM.lib")(options "")(descr ""))
+)
