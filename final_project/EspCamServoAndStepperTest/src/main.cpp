@@ -85,25 +85,24 @@ void setupWebServer()
 	server.begin();
 }
 
+bool leftTriggered = false;
+bool rightTriggered = false;
+
 void calibrateStepper()
 {
 	int count = 0;
-	bool runLeft = true;
-	while (runLeft)
+	while (!leftTriggered)
 	{
 		stepper.move(4 * MICROSTEPS);
 		count += 4 * MICROSTEPS;
-		runLeft = !digitalRead(LEFT_STOP);
 	}
 
 	stepper.move(-count);
 
-	bool runRight = true;
-	while (runRight)
+	while (!rightTriggered)
 	{
 		stepper.move(-4 * MICROSTEPS);
 		count += 4 * MICROSTEPS;
-		runRight = !digitalRead(RIGHT_STOP);
 	}
 
 	Serial.printf("I can count to %d!", count);
@@ -120,6 +119,11 @@ int prevPan, nextPan, currentPan;
 int prevMove, nextMove, moveAmount;
 
 int pos;
+
+void IRAM_ATTR endStopIsr() {
+	leftTriggered = digitalRead(LEFT_STOP);
+	rightTriggered = digitalRead(RIGHT_STOP);
+}
 
 void setup()
 {
@@ -138,7 +142,11 @@ void setup()
 	servoTilt.setPeriodHertz(50);
 	servoPan.setPeriodHertz(50);
 	pinMode(LEFT_STOP, INPUT_PULLDOWN);
+	attachInterrupt(LEFT_STOP, endStopIsr, CHANGE);
+	leftTriggered = digitalRead(LEFT_STOP);
 	pinMode(RIGHT_STOP, INPUT_PULLDOWN);
+	attachInterrupt(RIGHT_STOP, endStopIsr, CHANGE);
+	rightTriggered = digitalRead(RIGHT_STOP);
 	pinMode(BUILTIN_FLASH, OUTPUT);
 	servoTilt.attach(servoTiltPin, minUs, maxUs);
 	delay(500);
