@@ -25,7 +25,7 @@ Servo servoPan;
 
 #define BUILTIN_FLASH 4
 
-#define TILT_LIMIT 140
+#define TILT_LIMIT 135
 #define TILT_90_DEG 62
 // These two values refer to camera tilt relative to flat plane
 #define TILT_MIN 28
@@ -38,7 +38,43 @@ Servo servoPan;
 #include "A4988.h"
 A4988 stepper(MOTOR_STEPS, DIR, STEP);
 
-int count = 100 * MICROSTEPS; // Initialize to the movement we do back from the wall
+int count; // Initialize to the movement we do back from the wall
+
+void calibrateStepper()
+{
+  int count = 0;
+  bool runLeft = true;
+  while (runLeft)
+  {
+    stepper.move(4 * MICROSTEPS);
+    count += 4 * MICROSTEPS;
+    runLeft = !digitalRead(LEFT_STOP);
+  }
+
+  stepper.move(-count);
+
+  bool runRight = true;
+  while (runRight)
+  {
+    stepper.move(-4 * MICROSTEPS);
+    count += 4 * MICROSTEPS;
+    runRight = !digitalRead(RIGHT_STOP);
+  }
+
+  Serial.printf("I can count to %d!", count);
+  stepper.move(count / 2);
+}
+
+void writeTilt(int deg)
+{
+  servoTilt.write(constrain(deg - TILT_MIN, 0, TILT_LIMIT));
+}
+
+int prevTilt, nextTilt, currentTilt;
+int prevPan, nextPan, currentPan;
+int prevMove, nextMove, moveAmount;
+
+int pos;
 
 void setup()
 {
@@ -46,6 +82,7 @@ void setup()
    * Set target motor RPM.
    */
   Serial.begin(9600);
+  delay(20);
   stepper.begin(RPM, MICROSTEPS);
   // if using enable/disable on ENABLE pin (active LOW) instead of SLEEP uncomment next line
   // stepper.setEnableActiveState(LOW);
@@ -57,48 +94,22 @@ void setup()
   pinMode(RIGHT_STOP, INPUT_PULLDOWN);
   pinMode(BUILTIN_FLASH, OUTPUT);
   servoTilt.attach(servoTiltPin, minUs, maxUs);
+  delay(500);
+  servoPan.attach(servoPanPin, minUs, maxUs);
+  delay(500);
 
-  // bool runLeft = true;
-  // while (runLeft)
-  // {
-  //   stepper.move(4 * MICROSTEPS);
-  //   runLeft = !digitalRead(LEFT_STOP);
-  // }
+  pos = 90;
+  writeTilt(pos);
+  delay(500);
+  servoPan.write(pos);
+  delay(500);
 
-  // stepper.move(-100 * MICROSTEPS);
-
-  // bool runRight = true;
-  // while (runRight)
-  // {
-  //   stepper.move(-4 * MICROSTEPS);
-  //   count += 4 * MICROSTEPS;
-  //   runRight = !digitalRead(RIGHT_STOP);
-  // }
-
-  // Serial.printf("I can count to %d!", count);
-  // stepper.move(count / 2);
-}
-
-void writeTilt(int deg)
-{
-  servoTilt.write(constrain(deg - TILT_MIN, 0, TILT_LIMIT));
+  calibrateStepper();
+  delay(200);
 }
 
 void loop()
 {
-
-  // digitalWrite(4, digitalRead(2));
-  // delay(1000);
-  // if (digitalRead(2))
-  // {
-  //   stepper.stop();
-  //   digitalWrite(4, HIGH);
-  //   delay(500);
-  //   digitalWrite(4, LOW);
-  //   stepper.setMicrostep(16); // Set microstep mode to 1:1
-  //   stepper.startRotate(360);
-  // }
-
   /*
    * We do a little jig both ways from the middle, resetting on the same place
    */
@@ -106,21 +117,24 @@ void loop()
   // stepper.rotate(360);
   // stepper.rotate(-2 * 360);
   // stepper.rotate(360);
-  int pos = 0;
   // servoTilt.writeMicroseconds(minUs);
   // servoTilt.write(90);
   // delay(5);
   // for (pos = TILT_MIN; pos <= TILT_MAX; pos += 1)
-  for (pos = 0; pos <= 180; pos += 1)
+  for (; pos <= 180; pos += 1)
   { // sweep from 0 degrees to 180 degrees
+    // stepper.move(4 * MICROSTEPS);
     writeTilt(pos);
+    servoPan.write(pos);
     // Serial.println(pos);
     delay(20);
   }
   // for (pos = TILT_MAX; pos >= TILT_MIN; pos -= 1)
   for (pos = 180; pos >= 0; pos -= 1)
   { // sweep from 180 degrees to 0 degrees
+    // stepper.move(-4 * MICROSTEPS);
     writeTilt(pos);
+    servoPan.write(pos);
     // Serial.println(pos);
     delay(20);
   }
