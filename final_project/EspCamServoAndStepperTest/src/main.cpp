@@ -42,7 +42,7 @@ Servo servoPan;
 #include "A4988.h"
 A4988 stepper(MOTOR_STEPS, DIR_PIN, STEP_PIN);
 
-int moveSteps = 0; // Initialize to the movement we do back froscehamticm the wall
+int moveSteps = 0; // Initialize to the movement we do back from the wall
 
 const char *ssid = "ESP_Cam";
 const char *password = "29292929";
@@ -50,6 +50,25 @@ const char *password = "29292929";
 WebServer server(80);
 
 boolean LEDStatus = LOW;
+
+int prevTilt, nextTilt, currentTilt;
+int prevPan, nextPan, currentPan;
+int prevMove, nextMove, currentMove, moveDiff;
+
+int currentStep;
+#define MAX_STEPS 1000
+#define STEP 10
+
+void setNextPosition(int tilt, int pan, int move)
+{
+	prevTilt = currentTilt;
+	prevPan = currentPan;
+	prevMove = currentMove;
+	nextTilt = tilt;
+	nextPan = pan;
+	nextMove = move;
+	currentStep = 0;
+}
 
 void handleMoveForm()
 {
@@ -89,6 +108,16 @@ void handleLedOff()
 	server.send(200, "text/html", "Led On");
 }
 
+void handleMove()
+{
+	int pan = server.arg("pan").toInt();
+	int tilt = server.arg("tilt").toInt();
+	int move = server.arg("move").toInt();
+	Serial.printf("p=%d t=%d m=%d\n", pan, tilt, move);
+	setNextPosition(tilt, pan, move);
+	server.send(200, "text/html", "Yes sir!");
+}
+
 void handleNotFound()
 {
 	server.send(404, "text/html", "Not Found");
@@ -108,6 +137,7 @@ void setupWebServer()
 	server.on("/led_on", handleLedOn);
 	server.on("/led_off", handleLedOff);
 	server.on("/", handleMoveForm);
+	server.on("/move", handleMove);
 	server.onNotFound(handleNotFound);
 	server.begin();
 }
@@ -140,25 +170,6 @@ void calibrateStepper()
 void writeTilt(int deg)
 {
 	servoTilt.write(constrain(deg - TILT_MIN, 0, TILT_LIMIT));
-}
-
-int prevTilt, nextTilt, currentTilt;
-int prevPan, nextPan, currentPan;
-int prevMove, nextMove, currentMove, moveDiff;
-
-int currentStep;
-#define MAX_STEPS 1000
-#define STEP 10
-
-void setNextPosition(int tilt, int pan, int move)
-{
-	prevTilt = currentTilt;
-	prevPan = currentPan;
-	prevMove = currentMove;
-	nextTilt = tilt;
-	nextPan = pan;
-	nextMove = move;
-	currentStep = 0;
 }
 
 int pos;
@@ -246,8 +257,8 @@ void loop()
 	interpolate();
 	if (currentStep >= MAX_STEPS)
 	{
-		currentStep = 0;
-		setNextPosition(prevTilt, prevPan, prevMove);
+		// currentStep = 0;
+		// setNextPosition(prevTilt, prevPan, prevMove);
 		delay(10);
 	}
 	else
