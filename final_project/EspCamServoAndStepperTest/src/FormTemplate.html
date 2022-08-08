@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Move that thang</title>
+    <style>
+      div { padding: 4px; }
+      label { padding-right: 4px; }
+    </style>
+  </head>
+  <body>
+    <form action="move" method="GET">
+      <div><label for="pan">Pan</label><input id="pan" name="pan" type="range" min="0" max="180" /></div>
+      <div><label for="tilt">Tilt</label><input id="tilt" name="tilt" type="range" min="0" max="180" /></div>
+      <div><label for="move">Move</label><input id="move" name="move" type="range" min="0" max="27000" value="27000 / 2" /></div>
+      <input type="submit" />
+    </form>
+  </body>
+</html>

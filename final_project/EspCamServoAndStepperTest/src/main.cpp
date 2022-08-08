@@ -42,7 +42,7 @@ Servo servoPan;
 #include "A4988.h"
 A4988 stepper(MOTOR_STEPS, DIR_PIN, STEP_PIN);
 
-int count; // Initialize to the movement we do back froscehamticm the wall
+int moveSteps = 0; // Initialize to the movement we do back froscehamticm the wall
 
 const char *ssid = "ESP_Cam";
 const char *password = "29292929";
@@ -50,6 +50,30 @@ const char *password = "29292929";
 WebServer server(80);
 
 boolean LEDStatus = LOW;
+
+void handleMoveForm()
+{
+	server.send(200, "text/html", "<!DOCTYPE html>\
+<html>\
+  <head>\
+    <title>Move that thang</title>\
+    <style>\
+      div { padding: 4px; }\
+      label { padding-right: 4px; }\
+    </style>\
+  </head>\
+  <body>\
+    <form action=\"move\" method=\"GET\">\
+      <div><label for=\"pan\">Pan</label><input id=\"pan\" name=\"pan\" type=\"range\" min=\"0\" max=\"180\" /></div>\
+      <div><label for=\"tilt\">Tilt</label><input id=\"tilt\" name=\"tilt\" type=\"range\" min=\"" +
+																		(String(TILT_MIN)) + "\" max=\"" + (String(TILT_MAX)) + "\" /></div>\
+      <div><label for=\"move\">Move</label><input id=\"move\" name=\"move\" type=\"range\" min=\"0\" max=\"" +
+																		(String(moveSteps)) + "\" value=\"" + (String(moveSteps)) + " / 2\" /></div>\
+      <input type=\"submit\" />\
+    </form>\
+  </body>\
+</html>");
+}
 
 void handleLedOn()
 {
@@ -83,14 +107,13 @@ void setupWebServer()
 	}
 	server.on("/led_on", handleLedOn);
 	server.on("/led_off", handleLedOff);
+	server.on("/", handleMoveForm);
 	server.onNotFound(handleNotFound);
 	server.begin();
 }
 
 bool leftTriggered = false;
 bool rightTriggered = false;
-
-int moveSteps = 0;
 
 void calibrateStepper()
 {
@@ -110,7 +133,7 @@ void calibrateStepper()
 		delay(1);
 	}
 
-	Serial.printf("I can count to %d!", moveSteps);
+	Serial.printf("I can count to %d!\n", moveSteps);
 	stepper.move(moveSteps / 2);
 }
 
@@ -189,6 +212,9 @@ void setup()
 	currentPan = 90;
 	currentMove = moveSteps / 2;
 	setNextPosition(150, 40, moveSteps * 4 / 5);
+	IPAddress IP = WiFi.softAPIP();
+	Serial.print("AP IP address: ");
+	Serial.println(IP);
 }
 
 void interpolate()
@@ -214,6 +240,8 @@ void loop()
 	// delay(5);
 	// for (pos = TILT_MIN; pos <= TILT_MAX; pos += 1)
 
+	server.handleClient();
+
 	currentStep += STEP;
 	interpolate();
 	if (currentStep >= MAX_STEPS)
@@ -229,7 +257,7 @@ void loop()
 		servoPan.write(currentPan);
 		delay(2);
 		stepper.move(moveDiff);
-		Serial.printf("t: %d p: %d m: %d\n", currentTilt, currentPan, currentMove);
+		// Serial.printf("t: %d p: %d m: %d\n", currentTilt, currentPan, currentMove);
 		delay(6);
 	}
 
