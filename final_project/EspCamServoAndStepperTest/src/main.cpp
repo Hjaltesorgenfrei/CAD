@@ -2,6 +2,8 @@
 #include <ESP32Servo.h>
 #include <WiFi.h>
 #include <WebServer.h>
+#include "soc/soc.h"
+#include "soc/rtc_cntl_reg.h"
 
 // create a servo object
 Servo servoTilt;
@@ -19,8 +21,8 @@ Servo servoPan;
 #define RPM 150
 // #define RPM 75
 
-#define DIR 13
-#define STEP 12
+#define DIR_PIN 13
+#define STEP_PIN 12
 
 #define LEFT_STOP 2
 #define RIGHT_STOP 14
@@ -38,7 +40,7 @@ Servo servoPan;
  */
 
 #include "A4988.h"
-A4988 stepper(MOTOR_STEPS, DIR, STEP);
+A4988 stepper(MOTOR_STEPS, DIR_PIN, STEP_PIN);
 
 int count; // Initialize to the movement we do back froscehamticm the wall
 
@@ -88,25 +90,28 @@ void setupWebServer()
 bool leftTriggered = false;
 bool rightTriggered = false;
 
+int moveSteps = 0;
+
 void calibrateStepper()
 {
-	int count = 0;
 	while (!leftTriggered)
 	{
 		stepper.move(4 * MICROSTEPS);
-		count += 4 * MICROSTEPS;
+		moveSteps += 4 * MICROSTEPS;
+		delay(1);
 	}
 
-	stepper.move(-count);
+	stepper.move(-moveSteps);
 
 	while (!rightTriggered)
 	{
 		stepper.move(-4 * MICROSTEPS);
-		count += 4 * MICROSTEPS;
+		moveSteps += 4 * MICROSTEPS;
+		delay(1);
 	}
 
-	Serial.printf("I can count to %d!", count);
-	stepper.move(count / 2);
+	Serial.printf("I can count to %d!", moveSteps);
+	stepper.move(moveSteps / 2);
 }
 
 void writeTilt(int deg)
@@ -116,29 +121,41 @@ void writeTilt(int deg)
 
 int prevTilt, nextTilt, currentTilt;
 int prevPan, nextPan, currentPan;
-int prevMove, nextMove, moveAmount;
+int prevMove, nextMove, currentMove, moveDiff;
+
+int currentStep;
+#define MAX_STEPS 1000
+#define STEP 10
+
+void setNextPosition(int tilt, int pan, int move)
+{
+	prevTilt = currentTilt;
+	prevPan = currentPan;
+	prevMove = currentMove;
+	nextTilt = tilt;
+	nextPan = pan;
+	nextMove = move;
+	currentStep = 0;
+}
 
 int pos;
 
-void IRAM_ATTR endStopIsr() {
+void IRAM_ATTR endStopIsr()
+{
 	leftTriggered = digitalRead(LEFT_STOP);
 	rightTriggered = digitalRead(RIGHT_STOP);
 }
 
 void setup()
 {
+	WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0); // disable brownout detector
 	/*
 	 * Set target motor RPM.
 	 */
 	Serial.begin(9600);
-	delay(200);
+	delay(1500);
 	setupWebServer();
-	delay(200);
-	stepper.begin(RPM, MICROSTEPS);
-	// if using enable/disable on ENABLE pin (active LOW) instead of SLEEP uncomment next line
-	// stepper.setEnableActiveState(LOW);
-	stepper.setSpeedProfile(stepper.LINEAR_SPEED, 6000, 6000);
-	stepper.enable();
+	delay(500);
 	servoTilt.setPeriodHertz(50);
 	servoPan.setPeriodHertz(50);
 	pinMode(LEFT_STOP, INPUT_PULLDOWN);
@@ -159,8 +176,28 @@ void setup()
 	servoPan.write(pos);
 	delay(500);
 
+	stepper.begin(RPM, MICROSTEPS);
+	// if using enable/disable on ENABLE pin (active LOW) instead of SLEEP uncomment next line
+	// stepper.setEnableActiveState(LOW);
+	stepper.setSpeedProfile(stepper.LINEAR_SPEED, 6000, 6000);
+	stepper.enable();
+	delay(200);
+
 	calibrateStepper();
 	delay(200);
+	currentTilt = 90;
+	currentPan = 90;
+	currentMove = moveSteps / 2;
+	setNextPosition(150, 40, moveSteps * 4 / 5);
+}
+
+void interpolate()
+{
+	moveDiff = currentMove;
+	currentMove = prevMove + (((nextMove - prevMove) * currentStep) / MAX_STEPS);
+	moveDiff -= currentMove;
+	currentPan = prevPan + (((nextPan - prevPan) * currentStep) / MAX_STEPS);
+	currentTilt = prevTilt + (((nextTilt - prevTilt) * currentStep) / MAX_STEPS);
 }
 
 void loop()
@@ -177,23 +214,42 @@ void loop()
 	// delay(5);
 	// for (pos = TILT_MIN; pos <= TILT_MAX; pos += 1)
 
-	for (; pos <= 180; pos += 1)
-	{ // sweep from 0 degrees to 180 degrees
-		// stepper.move(4 * MICROSTEPS);
-		writeTilt(pos);
-		servoPan.write(pos);
-		// Serial.println(pos);
-		delay(20);
-		server.handleClient();
+	currentStep += STEP;
+	interpolate();
+	if (currentStep >= MAX_STEPS)
+	{
+		currentStep = 0;
+		setNextPosition(prevTilt, prevPan, prevMove);
+		delay(10);
 	}
-	// for (pos = TILT_MAX; pos >= TILT_MIN; pos -= 1)
-	for (pos = 180; pos >= 0; pos -= 1)
-	{ // sweep from 180 degrees to 0 degrees
-		// stepper.move(-4 * MICROSTEPS);
-		writeTilt(pos);
-		servoPan.write(pos);
-		// Serial.println(pos);
-		delay(20);
-		server.handleClient();
+	else
+	{
+		writeTilt(currentTilt);
+		delay(2);
+		servoPan.write(currentPan);
+		delay(2);
+		stepper.move(moveDiff);
+		Serial.printf("t: %d p: %d m: %d\n", currentTilt, currentPan, currentMove);
+		delay(6);
 	}
+
+	// for (; pos <= 180; pos += 1)
+	// { // sweep from 0 degrees to 180 degrees
+	// 	// stepper.move(4 * MICROSTEPS);
+	// 	writeTilt(pos);
+	// 	servoPan.write(pos);
+	// 	// Serial.println(pos);
+	// 	delay(20);
+	// 	server.handleClient();
+	// }
+	// // for (pos = TILT_MAX; pos >= TILT_MIN; pos -= 1)
+	// for (pos = 180; pos >= 0; pos -= 1)
+	// { // sweep from 180 degrees to 0 degrees
+	// 	// stepper.move(-4 * MICROSTEPS);
+	// 	writeTilt(pos);
+	// 	servoPan.write(pos);
+	// 	// Serial.println(pos);
+	// 	delay(20);
+	// 	server.handleClient();
+	// }
 }
